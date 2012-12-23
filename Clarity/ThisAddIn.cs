@@ -3,8 +3,10 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Windows.Forms;
 using HtmlAgilityPack;
 using Microsoft.Office.Interop.Outlook;
+using HtmlDocument = HtmlAgilityPack.HtmlDocument;
 
 namespace Clarity
 {
@@ -12,25 +14,41 @@ namespace Clarity
     {
         private void ThisAddInStartup(object sender, EventArgs e)
         {
+
+            Application.Startup+=new ApplicationEvents_11_StartupEventHandler(Application_Startup);
+            Application.NewMail+=new ApplicationEvents_11_NewMailEventHandler(Application_Startup);
+            
+        }
+
+        private void Application_Startup()
+        {
             MAPIFolder inBox = Application.ActiveExplorer().Session.GetDefaultFolder(OlDefaultFolders.olFolderInbox);
-            Items inBoxItems = inBox.Folders["Clarity"].Items;
-            inBoxItems = inBoxItems.Restrict("[Unread] = true");
-            foreach (
-                MailItem newEmail in inBoxItems.OfType<MailItem>().Where(newEmail => newEmail.Attachments.Count > 0))
+            Items inBoxItems = inBox.Folders["Clarity"].Items.Restrict("[Unread] = true");
+
+            do
             {
-                for (int i = 1;i <= newEmail.Attachments.Count;i++)
+
+                MailItem newEmail = inBoxItems.GetFirst();
+
+                for (int i = 1; i <= newEmail.Attachments.Count; i++)
                 {
                     newEmail.Attachments[i].SaveAsFile
                         (@"C:\TestFileSave\" +
                          newEmail.Attachments[i].FileName);
                 }
                 newEmail.UnRead = false;
-            }
+                inBoxItems = inBox.Folders["Clarity"].Items.Restrict("[Unread] = true");
+                MessageBox.Show(" ready to process mail number:" + inBox.Folders["Clarity"].Items.Restrict("[Unread] = true").Count);
+            } while (inBox.Folders["Clarity"].Items.Restrict("[Unread] = true").Count > 0);
+
+            MessageBox.Show(" ready to process file");
+
             ParseFile();
         }
 
         private void ThisAddIn_Shutdown(object sender, EventArgs e)
         {
+            MessageBox.Show(" i am shutdown");
         }
 
         private static void ParseFile()
@@ -70,7 +88,7 @@ namespace Clarity
                 sbOutput.AppendLine();
             }
 
-            var swCSVFile = new StreamWriter(@"C:\TestFileSave\TimeReport.csv");
+            var swCSVFile = new StreamWriter(@"C:\TestFileSave\TimeReport_" + DateTime.Today.ToString("dd-MM-yyyy") + ".csv", true);
             swCSVFile.Write(sbOutput);
             swCSVFile.Close();
         }
